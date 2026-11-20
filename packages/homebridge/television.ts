@@ -42,7 +42,6 @@ export class Television {
   private sourceTimer?: NodeJS.Timeout;
   private stopped = false;
   private power = false;
-  private activeIdentifier = 0;
   private currentUri?: string;
   private boot?: Promise<void>;
   private readonly api: RuntimeAPI;
@@ -235,7 +234,7 @@ export class Television {
       this.tv.updateCharacteristic(this.api.hap.Characteristic.Active, Number(on));
       if (!on) {
         this.currentUri = undefined;
-        this.updateIdentifier(0);
+        this.updateIdentifier();
       }
     }
     return on;
@@ -253,7 +252,7 @@ export class Television {
       this.tv.updateCharacteristic(this.api.hap.Characteristic.Active, Number(on));
       if (!on) {
         this.currentUri = undefined;
-        this.updateIdentifier(0);
+        this.updateIdentifier();
       }
     }
   }
@@ -277,7 +276,10 @@ export class Television {
     } else {
       await this.client.avContent.setPlayContent({ uri: input.uri });
     }
-    this.updateIdentifier(identifier);
+    if (!this.stopped) {
+      this.currentUri = input.uri;
+      this.updateIdentifier();
+    }
   }
 
   private async readAudio() {
@@ -287,9 +289,16 @@ export class Television {
     return output;
   }
 
-  private updateIdentifier(identifier: number): void {
-    this.activeIdentifier = identifier;
-    this.tv.updateCharacteristic(this.api.hap.Characteristic.ActiveIdentifier, identifier);
+  private get activeIdentifier(): number {
+    const identifier = this.currentUri ? (this.inputs.get(this.currentUri)?.identifier ?? 0) : 0;
+    return this.services.has(identifier) ? identifier : 0;
+  }
+
+  private updateIdentifier(): void {
+    this.tv.updateCharacteristic(
+      this.api.hap.Characteristic.ActiveIdentifier,
+      this.activeIdentifier,
+    );
   }
 
   private async poll(): Promise<void> {
@@ -299,14 +308,13 @@ export class Television {
         const uri = (await this.client.avContent.getPlayingContentInfo()).result[0].uri;
         if (!this.stopped) {
           this.currentUri = uri;
-          const identifier = this.inputs.get(uri)?.identifier ?? 0;
-          this.updateIdentifier(this.services.has(identifier) ? identifier : 0);
+          this.updateIdentifier();
         }
       } catch (error) {
         // Apps and standby displays may not expose playing-content information.
         if (!this.stopped) {
           this.currentUri = undefined;
-          this.updateIdentifier(0);
+          this.updateIdentifier();
         }
         this.debug(`${this.config.name}: playing content unavailable`, error);
       }
@@ -471,10 +479,7 @@ export class Television {
       this.tv.addLinkedService(service);
       this.services.set(input.identifier, service);
     }
-    const identifier = this.currentUri
-      ? (this.inputs.get(this.currentUri)?.identifier ?? 0)
-      : this.activeIdentifier;
-    this.updateIdentifier(this.services.has(identifier) ? identifier : 0);
+    this.updateIdentifier();
     this.persistInputs();
   }
 

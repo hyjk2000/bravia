@@ -233,6 +233,7 @@ test("stable input identities and user names survive reordered scans, failures, 
     expect(
       (f.accessory.context.inputs as { uri: string }[]).some((input) => input.uri === "app:video"),
     ).toBe(true);
+    expect(f.television.getCharacteristic(f.C.ActiveIdentifier).value).toBe(0);
     f.state.inputs = [{ title: "HDMI 1", uri: first.uri }];
     await f.until(
       () =>
@@ -243,6 +244,7 @@ test("stable input identities and user names survive reordered scans, failures, 
       (input) => input.uri === first.uri,
     )!;
     expect(replacement.identifier).not.toBe(first.identifier); // Removed IDs are never recycled for a different service.
+    expect(f.television.getCharacteristic(f.C.ActiveIdentifier).value).toBe(replacement.identifier);
     f.tv.stop();
     const restored = f.api.platformAccessory.deserialize(
       f.api.platformAccessory.serialize(f.accessory),
@@ -265,6 +267,25 @@ test("stable input identities and user names survive reordered scans, failures, 
   }
 });
 
+test("selected HDMI input survives a source refresh before the next status poll", async () => {
+  const f = await fixture();
+  try {
+    await f.tv.start();
+    const inputs = f.accessory.context.inputs as { uri: string; identifier: number }[];
+    const selected = inputs.find((input) => input.uri.endsWith("port=2"))!;
+    const active = f.television.getCharacteristic(f.C.ActiveIdentifier);
+    await active.handleSetRequest(selected.identifier);
+    const scans = f.state.calls.filter((method) => method === "getApplicationList").length;
+    await f.until(
+      () => f.state.calls.filter((method) => method === "getApplicationList").length > scans,
+    );
+    expect(active.value).toBe(selected.identifier);
+    expect(await active.handleGetRequest()).toBe(selected.identifier);
+  } finally {
+    await f.close();
+  }
+});
+
 test("HomeKit commands await TV success, propagate errors, wake before selecting, and control audio/apps", async () => {
   const f = await fixture();
   try {
@@ -275,6 +296,9 @@ test("HomeKit commands await TV success, propagate errors, wake before selecting
     await expect(
       f.television.getCharacteristic(f.C.ActiveIdentifier).handleSetRequest(physical.identifier),
     ).rejects.toThrow();
+    expect(await f.television.getCharacteristic(f.C.ActiveIdentifier).handleGetRequest()).toBe(
+      inputs.find((input) => input.uri.endsWith("port=1"))!.identifier,
+    );
     f.state.failCommand = false;
     await f.television.getCharacteristic(f.C.Active).handleSetRequest(f.C.Active.INACTIVE);
     expect(f.state.power).toBe(false);
