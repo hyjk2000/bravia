@@ -1,6 +1,6 @@
 {
   "name": "@hyjk2000/bravia-sdk",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "TypeScript SDK for Sony BRAVIA JSON-RPC and IRCC APIs",
   "license": "MIT",
   "repository": {
@@ -28,7 +28,6 @@
     "build": "tsdown",
     "typecheck": "tsc -p tsconfig.json",
     "prepack": "pnpm run build",
-    "release": "semantic-release",
     "repl": "node --interactive --eval 'var { Bravia } = require(\"@hyjk2000/bravia-sdk\")'",
     "test": "vitest run"
   },
@@ -38,36 +37,6 @@
   },
   "devDependencies": {
     "msw": "^2"
-  },
-  "release": {
-    "branches": [
-      "master"
-    ],
-    "tagFormat": "sdk-v${version}",
-    "plugins": [
-      "@semantic-release/commit-analyzer",
-      "@semantic-release/release-notes-generator",
-      [
-        "@semantic-release/npm",
-        {
-          "npmPublish": false
-        }
-      ],
-      [
-        "@semantic-release/exec",
-        {
-          "publishCmd": "pnpm stage publish --no-git-checks --tag ${nextRelease.channel || 'latest'}"
-        }
-      ],
-      [
-        "@semantic-release/github",
-        {
-          "draftRelease": true,
-          "successComment": false,
-          "releasedLabels": false
-        }
-      ]
-    ]
   },
   "engines": {
     "node": ">=24"

@@ -17,7 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      issues: write
       pull-requests: write
       id-token: write
     steps:
@@ -31,16 +30,13 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Set published package metadata
-        run: |
-          npm pkg set --prefix packages/sdk repository.type=git "repository.url=git+${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" repository.directory=packages/sdk
-          npm pkg set --prefix packages/homebridge repository.type=git "repository.url=git+${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" repository.directory=packages/homebridge "homepage=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/master/packages/homebridge#readme" "bugs.url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/issues"
       # The plugin resolves SDK types and runtime exports from its built dist directory.
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
-      - run: pnpm release
+      - name: Version or publish packages
+        uses: changesets/action@v2
         if: github.ref == 'refs/heads/master'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          publish-script: pnpm release

@@ -1,7 +1,7 @@
 {
   "name": "@hyjk2000/homebridge-bravia",
   "displayName": "Sony BRAVIA",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Homebridge television platform for Sony BRAVIA TVs",
   "keywords": [
     "bravia",
@@ -16,6 +16,10 @@
     "type": "git",
     "url": "git+https://github.com/hyjk2000/bravia.git",
     "directory": "packages/homebridge"
+  },
+  "homepage": "https://github.com/hyjk2000/bravia/tree/master/packages/homebridge#readme",
+  "bugs": {
+    "url": "https://github.com/hyjk2000/bravia/issues"
   },
   "files": [
     "dist",
@@ -32,8 +36,7 @@
     "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "vitest run",
-    "prepack": "pnpm run build",
-    "release": "semantic-release"
+    "prepack": "pnpm run build"
   },
   "dependencies": {
     "@hyjk2000/bravia-sdk": "workspace:*"
@@ -43,36 +46,6 @@
   },
   "peerDependencies": {
     "homebridge": "^1.8.0 || ^2.0.0 || ^2.0.0-beta.0"
-  },
-  "release": {
-    "branches": [
-      "master"
-    ],
-    "tagFormat": "homebridge-v${version}",
-    "plugins": [
-      "@semantic-release/commit-analyzer",
-      "@semantic-release/release-notes-generator",
-      [
-        "@semantic-release/npm",
-        {
-          "npmPublish": false
-        }
-      ],
-      [
-        "@semantic-release/exec",
-        {
-          "publishCmd": "pnpm stage publish --no-git-checks --tag ${nextRelease.channel || 'latest'}"
-        }
-      ],
-      [
-        "@semantic-release/github",
-        {
-          "draftRelease": true,
-          "successComment": false,
-          "releasedLabels": false
-        }
-      ]
-    ]
   },
   "engines": {
     "homebridge": ">=1.8.0",
