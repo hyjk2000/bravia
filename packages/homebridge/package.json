@@ -48,7 +48,31 @@
     "branches": [
       "master"
     ],
-    "tagFormat": "homebridge-v${version}"
+    "tagFormat": "homebridge-v${version}",
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      [
+        "@semantic-release/npm",
+        {
+          "npmPublish": false
+        }
+      ],
+      [
+        "@semantic-release/exec",
+        {
+          "publishCmd": "pnpm stage publish --no-git-checks --tag ${nextRelease.channel || 'latest'}"
+        }
+      ],
+      [
+        "@semantic-release/github",
+        {
+          "draftRelease": true,
+          "successComment": false,
+          "releasedLabels": false
+        }
+      ]
+    ]
   },
   "engines": {
     "homebridge": ">=1.8.0",
