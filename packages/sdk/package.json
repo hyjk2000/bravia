@@ -1,0 +1,51 @@
+{
+  "name": "@hyjk2000/bravia-sdk",
+  "version": "0.0.1",
+  "description": "TypeScript SDK for Sony BRAVIA JSON-RPC and IRCC APIs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyjk2000/bravia.git",
+    "directory": "packages/sdk"
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json",
+    "prepack": "pnpm run build",
+    "release": "semantic-release",
+    "repl": "node --interactive --eval 'var { Bravia } = require(\"@hyjk2000/bravia-sdk\")'",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "cookie": "^2.0.1",
+    "ky": "^2.1.0"
+  },
+  "devDependencies": {
+    "msw": "^2"
+  },
+  "release": {
+    "branches": [
+      "master"
+    ],
+    "tagFormat": "sdk-v${version}"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

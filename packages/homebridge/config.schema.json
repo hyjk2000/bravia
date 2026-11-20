@@ -1,0 +1,131 @@
+{
+  "pluginAlias": "BraviaPlatform",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Turn the TV on and enable IP/remote control and network standby. For PIN pairing, leave **Pre-shared key** blank, save, and restart Homebridge (or the plugin's child bridge). Click the URL printed in [Homebridge Logs](/logs), then enter the PIN displayed on the TV in that page. Saved sessions and valid pre-shared keys skip PIN pairing.\n\nAdd each TV separately in Apple Home using Homebridge's pairing code.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Platform name",
+        "type": "string",
+        "default": "BraviaPlatform"
+      },
+      "tvs": {
+        "title": "Televisions",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["name", "ip"],
+          "properties": {
+            "name": {
+              "title": "TV name",
+              "type": "string",
+              "minLength": 1,
+              "description": "Unique HomeKit display name."
+            },
+            "ip": {
+              "title": "IP address or hostname",
+              "type": "string",
+              "minLength": 1,
+              "description": "TV address only, without http://, credentials, port, or path."
+            },
+            "port": {
+              "title": "TV HTTP port",
+              "default": 80,
+              "oneOf": [
+                { "type": "integer", "minimum": 1, "maximum": 65535 },
+                { "type": "string", "pattern": "^[0-9]+$" }
+              ]
+            },
+            "mac": {
+              "title": "MAC address",
+              "type": "string",
+              "pattern": "^(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^(?:[0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$",
+              "description": "Required for Wake-on-LAN when network standby does not wake the TV."
+            },
+            "woladdress": {
+              "title": "Wake-on-LAN destination",
+              "type": "string",
+              "default": "255.255.255.255",
+              "description": "Broadcast IP address or hostname reachable from Homebridge."
+            },
+            "tvsource": {
+              "title": "Preferred TV source",
+              "type": "string",
+              "description": "Optional additional Sony source category to discover."
+            },
+            "soundoutput": {
+              "title": "Audio output",
+              "type": "string",
+              "default": "speaker",
+              "description": "Sony audio output target used for volume control."
+            },
+            "updaterate": {
+              "title": "Status polling interval",
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "default": 5000,
+              "description": "Milliseconds between status updates; must be positive."
+            },
+            "channelupdaterate": {
+              "title": "Channel refresh interval",
+              "type": "number",
+              "minimum": 0,
+              "default": 30000,
+              "description": "Milliseconds between channel list updates; 0 disables channel polling."
+            },
+            "starttimeout": {
+              "title": "Startup timeout",
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "default": 5000,
+              "description": "Positive delay in milliseconds for the television to wake."
+            },
+            "psk": {
+              "title": "Pre-shared key",
+              "type": "string",
+              "format": "password",
+              "description": "Optional key matching the TV's IP control settings. Leave blank for PIN pairing."
+            },
+            "externalaccessory": {
+              "title": "Publish as external television",
+              "type": "boolean",
+              "default": true,
+              "description": "Recommended: pair each TV separately in the Home app. Set false to publish through the bridge instead."
+            },
+            "debug": { "title": "Debug logging", "type": "boolean", "default": false },
+            "sources": {
+              "title": "Input sources",
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "type": "object",
+                "required": ["source"],
+                "properties": {
+                  "source": { "title": "Source category", "type": "string", "minLength": 1 }
+                }
+              },
+              "x-schema-form": { "listItems": 0, "removable": true },
+              "description": "Sony source categories, such as extInput:hdmi. Add or delete entries to choose which inputs to expose; an empty list exposes no physical inputs. At most 95 inputs and applications are exposed."
+            },
+            "applications": {
+              "title": "Applications",
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": { "title": "App title filter", "type": "string", "minLength": 1 }
+                }
+              },
+              "x-schema-form": { "listItems": 0, "removable": true },
+              "description": "Add app titles or title substrings to expose matching installed TV apps as inputs. Delete entries to remove them; an empty list exposes no apps."
+            }
+          }
+        }
+      }
+    }
+  }
+}

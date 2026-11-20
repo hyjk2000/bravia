@@ -1,0 +1,31 @@
+{
+  "name": "bravia",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter @hyjk2000/homebridge-bravia dev",
+    "repl": "pnpm --filter @hyjk2000/bravia-sdk repl",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "release": "pnpm -r --workspace-concurrency=1 release",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "oxfmt": "^0.79.0",
+    "oxlint": "^1.94.0",
+    "oxlint-tsgolint": "^7.0.2007",
+    "semantic-release": "^25.0.9",
+    "tsdown": "^0.23.7",
+    "typescript": "^7",
+    "vitest": "^4"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.12.0"
+}

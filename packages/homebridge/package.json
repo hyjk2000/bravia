@@ -1,0 +1,57 @@
+{
+  "name": "@hyjk2000/homebridge-bravia",
+  "displayName": "Sony BRAVIA",
+  "version": "0.0.1",
+  "description": "Homebridge television platform for Sony BRAVIA TVs",
+  "keywords": [
+    "bravia",
+    "homebridge-plugin",
+    "sony",
+    "supports-hap",
+    "television"
+  ],
+  "license": "MIT",
+  "author": "James Shi",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyjk2000/bravia.git",
+    "directory": "packages/homebridge"
+  },
+  "files": [
+    "dist",
+    "config.schema.json"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": "./dist/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "prepack": "pnpm run build",
+    "release": "semantic-release"
+  },
+  "dependencies": {
+    "@hyjk2000/bravia-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "homebridge": "^1.8.0"
+  },
+  "peerDependencies": {
+    "homebridge": "^1.8.0 || ^2.0.0 || ^2.0.0-beta.0"
+  },
+  "release": {
+    "branches": [
+      "master"
+    ],
+    "tagFormat": "homebridge-v${version}"
+  },
+  "engines": {
+    "homebridge": ">=1.8.0",
+    "node": ">=24"
+  }
+}

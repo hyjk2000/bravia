@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Shared by every workspace; keep automatic config and tsconfig discovery.
+  "options": {
+    "typeAware": true,
+    "maxWarnings": 0,
+    "reportUnusedDisableDirectives": "error"
+  },
+  // Keep dependencies and generated output out of CLI and editor linting.
+  "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/coverage/**"],
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error"
+  },
+  "env": {
+    "builtin": true,
+    "node": true
+  }
+}
