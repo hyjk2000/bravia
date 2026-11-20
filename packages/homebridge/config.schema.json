@@ -17,6 +17,15 @@
         "items": {
           "type": "object",
           "required": ["name", "ip"],
+          "default": {
+            "sources": [
+              { "source": "extInput:hdmi" },
+              { "source": "extInput:component" },
+              { "source": "extInput:scart" },
+              { "source": "extInput:cec" },
+              { "source": "extInput:widi" }
+            ]
+          },
           "properties": {
             "name": {
               "title": "TV name",
@@ -107,7 +116,7 @@
                 }
               },
               "x-schema-form": { "listItems": 0, "removable": true },
-              "description": "Sony source categories, such as extInput:hdmi. Add or delete entries to choose which inputs to expose; an empty list exposes no physical inputs. At most 95 inputs and applications are exposed."
+              "description": "New TVs start with the five default Sony source categories. Edit the list to customize discovery. Homebridge's form omits empty lists on save; to disable these categories, set sources to [] using JSON Config. At most 95 inputs and applications are exposed."
             },
             "applications": {
               "title": "Applications",
