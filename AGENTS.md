@@ -23,7 +23,6 @@ pnpm typecheck
 pnpm test
 pnpm --filter @hyjk2000/homebridge-bravia test
 pnpm --filter @hyjk2000/bravia-sdk test
-pnpm check
 pnpm lint
 pnpm fmt
 ```
