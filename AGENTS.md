@@ -53,6 +53,8 @@ Both packages use Vitest's `expect` assertions. SDK tests use `msw/node`; plugin
 
 Both packages use `prepack` to build public npm artifacts; the SDK must be built before the plugin. `pnpm build` builds in workspace dependency order. Each package has a `typecheck` script; root `pnpm typecheck` runs both and `pnpm check` is its alias.
 
-`.github/workflows/release.yml` verifies `master`, then uses Changesets to open a version PR or publish packages. Run `pnpm changeset` for publishable changes; commit the generated file. Merge the version PR to publish. Versions and changelogs are tracked in git; the plugin's `workspace:*` SDK dependency propagates SDK bumps.
+1. For publishable changes, run `pnpm changeset` and commit the generated file with the code. Land the commits locally on `master` and push `master` directly; do not open a code PR for this release flow.
+2. Let `.github/workflows/release.yml` verify the push and let Changesets open or update the **Version Packages** PR. Changesets owns the version bumps, changelog entries, and removal of consumed changesets. The plugin's `workspace:*` SDK dependency propagates SDK bumps.
+3. Review and merge the generated version PR to trigger trusted publishing. Confirm the release workflow succeeded and npm serves the new version's tarball. Do not publish manually or assume a missing tarball means the release is staged.
 
 Allow GitHub Actions to create pull requests and configure npm trusted publishers for both packages using `release.yml`. No npm token, Changesets bot, or changeset enforcement is configured.
