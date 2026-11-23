@@ -1,5 +1,11 @@
 # @hyjk2000/homebridge-bravia
 
+## 0.0.4
+
+### Patch Changes
+
+- 758c6af: Prevent delayed TV status reads from rolling back successful HomeKit power and input changes. Keep the last known input when Sony cannot identify playing content, and update it when playback is identified or the TV enters standby.
+
 ## 0.0.3
 
 ### Patch Changes
