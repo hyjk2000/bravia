@@ -21,7 +21,7 @@ const log: Logging = Object.assign(quiet, {
   log: quiet,
 });
 
-async function fixture() {
+async function fixture(overrides: { channelupdaterate?: number; updaterate?: number } = {}) {
   const state = {
     power: true,
     uri: "extInput:hdmi?port=1",
@@ -29,9 +29,17 @@ async function fixture() {
     mute: false,
     failScan: false,
     failCommand: false,
+    failPlayingContent: false,
     app: "",
     calls: [] as string[],
     inputs: [1, 2, 3].map((port) => ({ title: `HDMI ${port}`, uri: `extInput:hdmi?port=${port}` })),
+  };
+  let heldReply: { method: string; received: () => void; release: Promise<void> } | undefined;
+  const holdStatusReply = (method: "getPlayingContentInfo" | "getPowerStatus") => {
+    const received = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    heldReply = { method, received: received.resolve, release: release.promise };
+    return { received: received.promise, release: release.resolve };
   };
   const server = createServer((request, response) => {
     void (async () => {
@@ -57,7 +65,8 @@ async function fixture() {
       const input = params[0] ?? {};
       if (
         (method === "getContentList" && state.failScan) ||
-        (method === "setPlayContent" && state.failCommand)
+        (method === "setPlayContent" && state.failCommand) ||
+        (method === "getPlayingContentInfo" && state.failPlayingContent)
       ) {
         reply({ id, error: [7, "Unavailable"] });
         return;
@@ -110,6 +119,12 @@ async function fixture() {
           reply({ id, error: [12, "Unknown method"] });
           return;
       }
+      if (heldReply?.method === method) {
+        const held = heldReply;
+        heldReply = undefined;
+        held.received();
+        await held.release;
+      }
       reply({ id, result });
     })().catch(() => {
       response.statusCode = 500;
@@ -134,6 +149,7 @@ async function fixture() {
     starttimeout: 1,
     channelupdaterate: 25,
     updaterate: 60_000,
+    ...overrides,
   };
   const client = new Bravia({ baseUrl: `http://127.0.0.1:${address.port}` });
   // Exercise real scheduled refreshes and live HTTP; await persistence signals, not sleeps.
@@ -167,6 +183,7 @@ async function fixture() {
     C,
     television,
     speaker,
+    holdStatusReply,
     until,
     close: async () => {
       tv.stop();
@@ -281,6 +298,114 @@ test("selected HDMI input survives a source refresh before the next status poll"
     );
     expect(active.value).toBe(selected.identifier);
     expect(await active.handleGetRequest()).toBe(selected.identifier);
+  } finally {
+    await f.close();
+  }
+});
+
+test("a delayed status poll cannot undo a successful HomeKit input selection", async () => {
+  const f = await fixture({ updaterate: 25, channelupdaterate: 0 });
+  try {
+    await f.tv.start();
+    const inputs = f.accessory.context.inputs as { uri: string; identifier: number }[];
+    const selected = inputs.find((input) => input.uri.endsWith("port=2"))!;
+    const external = inputs.find((input) => input.uri.endsWith("port=3"))!;
+    const active = f.television.getCharacteristic(f.C.ActiveIdentifier);
+    const delayed = f.holdStatusReply("getPlayingContentInfo");
+    try {
+      await delayed.received;
+      await active.handleSetRequest(selected.identifier);
+      const observed: unknown[] = [];
+      active.on("change", ({ newValue }) => {
+        observed.push(newValue);
+      });
+      f.state.uri = external.uri;
+      delayed.release();
+      await f.until(() => active.value === external.identifier);
+      expect(observed).toEqual([external.identifier]);
+    } finally {
+      delayed.release();
+    }
+  } finally {
+    await f.close();
+  }
+});
+
+test("unavailable playing content does not clear a selected app, but a known input can replace it", async () => {
+  const f = await fixture({ updaterate: 25, channelupdaterate: 0 });
+  try {
+    await f.tv.start();
+    const inputs = f.accessory.context.inputs as { uri: string; identifier: number }[];
+    const app = inputs.find((input) => input.uri === "app:video")!;
+    const hdmi = inputs.find((input) => input.uri === f.state.uri)!;
+    const active = f.television.getCharacteristic(f.C.ActiveIdentifier);
+
+    f.state.failPlayingContent = true;
+    await active.handleSetRequest(app.identifier);
+    const polls = f.state.calls.filter((method) => method === "getPlayingContentInfo").length;
+    await f.until(
+      () =>
+        f.state.calls.filter((method) => method === "getPlayingContentInfo").length >= polls + 2,
+    );
+    expect(active.value).toBe(app.identifier);
+    expect(await active.handleGetRequest()).toBe(app.identifier);
+
+    f.state.failPlayingContent = false;
+    await f.until(() => active.value === hdmi.identifier);
+    expect(await active.handleGetRequest()).toBe(hdmi.identifier);
+  } finally {
+    await f.close();
+  }
+});
+
+test("a delayed HomeKit power read cannot undo power-on and input selection", async () => {
+  const f = await fixture();
+  try {
+    await f.tv.start();
+    const delayed = f.holdStatusReply("getPowerStatus");
+    const power = f.television.getCharacteristic(f.C.Active);
+    const active = f.television.getCharacteristic(f.C.ActiveIdentifier);
+    const selected = (f.accessory.context.inputs as { uri: string; identifier: number }[]).find(
+      (input) => input.uri.endsWith("port=2"),
+    )!;
+    f.state.power = false;
+    const reading = power.handleGetRequest();
+    try {
+      await delayed.received;
+      await power.handleSetRequest(f.C.Active.ACTIVE);
+      await active.handleSetRequest(selected.identifier);
+    } finally {
+      delayed.release();
+      await expect(reading).resolves.toBe(f.C.Active.ACTIVE);
+    }
+    expect(power.value).toBe(f.C.Active.ACTIVE);
+    expect(await active.handleGetRequest()).toBe(selected.identifier);
+  } finally {
+    await f.close();
+  }
+});
+
+test("a rejected HomeKit selection does not invalidate an in-flight power read", async () => {
+  const f = await fixture();
+  try {
+    await f.tv.start();
+    const power = f.television.getCharacteristic(f.C.Active);
+    const active = f.television.getCharacteristic(f.C.ActiveIdentifier);
+    const selected = (f.accessory.context.inputs as { uri: string; identifier: number }[]).find(
+      (input) => input.uri.endsWith("port=2"),
+    )!;
+    f.state.power = false;
+    f.state.failCommand = true;
+    const delayed = f.holdStatusReply("getPowerStatus");
+    const reading = power.handleGetRequest();
+    try {
+      await delayed.received;
+      await expect(active.handleSetRequest(selected.identifier)).rejects.toThrow();
+    } finally {
+      delayed.release();
+      await expect(reading).resolves.toBe(f.C.Active.INACTIVE);
+    }
+    expect(await active.handleGetRequest()).toBe(0);
   } finally {
     await f.close();
   }
