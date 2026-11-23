@@ -21,6 +21,8 @@ interface Input {
   visibility?: number;
 }
 
+type StatusChange = { power: boolean } | { uri: string | undefined } | { powerUnavailable: true };
+
 const DEFAULT_SOURCES = [
   "extInput:hdmi",
   "extInput:component",
@@ -43,6 +45,7 @@ export class Television {
   private stopped = false;
   private power = false;
   private currentUri?: string;
+  private statusRevision = 0;
   private boot?: Promise<void>;
   private readonly api: RuntimeAPI;
   private readonly log: Logging;
@@ -227,17 +230,15 @@ export class Television {
     this.save();
   }
 
-  private async readPower(): Promise<boolean> {
-    const on = (await this.client.system.getPowerStatus()).result[0].status === "active";
-    if (!this.stopped) {
-      this.power = on;
-      this.tv.updateCharacteristic(this.api.hap.Characteristic.Active, Number(on));
-      if (!on) {
-        this.currentUri = undefined;
-        this.updateIdentifier();
-      }
+  private async readPower(revision = this.statusRevision): Promise<boolean> {
+    try {
+      const on = (await this.client.system.getPowerStatus()).result[0].status === "active";
+      this.commitStatus({ power: on }, revision);
+    } catch (error) {
+      if (revision === this.statusRevision) throw error;
     }
-    return on;
+    // A HomeKit getter must return the committed value, not the superseded response.
+    return this.power;
   }
 
   private async setPower(on: boolean): Promise<void> {
@@ -247,14 +248,7 @@ export class Television {
     } else {
       await this.client.system.setPowerStatus({ status: on });
     }
-    if (!this.stopped) {
-      this.power = on;
-      this.tv.updateCharacteristic(this.api.hap.Characteristic.Active, Number(on));
-      if (!on) {
-        this.currentUri = undefined;
-        this.updateIdentifier();
-      }
-    }
+    this.commitStatus({ power: on });
   }
 
   private async selectInput(identifier: number): Promise<void> {
@@ -276,10 +270,7 @@ export class Television {
     } else {
       await this.client.avContent.setPlayContent({ uri: input.uri });
     }
-    if (!this.stopped) {
-      this.currentUri = input.uri;
-      this.updateIdentifier();
-    }
+    this.commitStatus({ uri: input.uri });
   }
 
   private async readAudio() {
@@ -294,6 +285,29 @@ export class Television {
     return this.services.has(identifier) ? identifier : 0;
   }
 
+  private commitStatus(change: StatusChange, observedAt?: number): void {
+    if (this.stopped) return;
+    // Successful commands supersede observations already in flight, not future polls.
+    if (observedAt === undefined) this.statusRevision++;
+    else if (observedAt !== this.statusRevision) return;
+
+    const { Characteristic: C, HapStatusError, HAPStatus } = this.api.hap;
+    if ("power" in change) {
+      this.power = change.power;
+      if (!change.power) this.currentUri = undefined;
+      this.tv.updateCharacteristic(C.Active, Number(change.power));
+      if (!change.power) this.updateIdentifier();
+    } else if ("uri" in change) {
+      this.currentUri = change.uri;
+      this.updateIdentifier();
+    } else {
+      this.tv.updateCharacteristic(
+        C.Active,
+        new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE),
+      );
+    }
+  }
+
   private updateIdentifier(): void {
     this.tv.updateCharacteristic(
       this.api.hap.Characteristic.ActiveIdentifier,
@@ -302,28 +316,20 @@ export class Television {
   }
 
   private async poll(): Promise<void> {
+    const revision = this.statusRevision;
     try {
-      if (!(await this.readPower()) || this.stopped) return;
+      if (!(await this.readPower(revision)) || this.stopped || revision !== this.statusRevision)
+        return;
       try {
         const uri = (await this.client.avContent.getPlayingContentInfo()).result[0].uri;
-        if (!this.stopped) {
-          this.currentUri = uri;
-          this.updateIdentifier();
-        }
+        this.commitStatus({ uri }, revision);
       } catch (error) {
-        // Apps and standby displays may not expose playing-content information.
-        if (!this.stopped) {
-          this.currentUri = undefined;
-          this.updateIdentifier();
-        }
+        // Sony may not identify app playback. Keep the last known input until a read
+        // identifies different content or the TV reports standby.
         this.debug(`${this.config.name}: playing content unavailable`, error);
       }
     } catch (error) {
-      if (!this.stopped)
-        this.tv.updateCharacteristic(
-          this.api.hap.Characteristic.Active,
-          new this.api.hap.HapStatusError(this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE),
-        );
+      this.commitStatus({ powerUnavailable: true }, revision);
       this.debug(`${this.config.name}: status unavailable`, error);
     } finally {
       if (!this.stopped) this.save();
