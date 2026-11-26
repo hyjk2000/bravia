@@ -53,9 +53,9 @@ outside registration. A successful registration can reuse an existing cookie.
 
 The method returns the available cookie, or `null` for an HTTP/API 401 challenge
 or a successful response without any session cookie. Other failures throw.
-`null` alone therefore does not distinguish those two cases. The SDK does not
-create a PIN-entry server or write credentials to disk. PSK authentication uses
-`X-Auth-PSK` on both JSON and IRCC calls and does not require PIN registration.
+`null` alone therefore does not distinguish those two cases. The caller handles
+PIN entry and credential storage. PSK authentication uses `X-Auth-PSK` on both
+JSON and IRCC calls and does not require PIN registration.
 
 ## Domain modules and endpoint coverage
 
@@ -83,14 +83,13 @@ slash; `baseUrl` supplies the TV origin, including an optional port.
 JSON responses preserve the envelope `{ id, result }`. In particular, list
 methods have a **nested** array: `result[0]` is the list, not its first item.
 Request IDs are generated per client in Sony's valid range `1..2147483647`,
-wrapping to 1. IDs distinguish requests, not methods or devices; no plugin
-hard-coded IDs are copied.
+wrapping to 1. IDs distinguish requests, not methods or devices.
 
 Audio information contains a target, numeric volume, mute boolean, and
 `minVolume`/`maxVolume`. Select the output you need; do not assume the first
 entry is the speaker. Volume commands are strings: `"25"` is absolute, `"+1"`
-and `"-1"` are relative. The SDK does not impose an invented model-independent
-volume range. Mute v1.0 does not accept a target.
+and `"-1"` are relative. Volume limits depend on the audio target and device.
+Mute v1.0 does not accept a target.
 
 Content and application URIs are opaque strings and are JSON-serialized without
 manual concatenation. The legacy content-list method takes **`source`**, not the
@@ -98,68 +97,37 @@ manual concatenation. The legacy content-list method takes **`source`**, not the
 the SDK does not automatically scan all pages or sources. Optional content
 metadata varies by source and firmware.
 
-## IRCC and plugin corrections
+## IRCC remote commands
 
 IRCC is SOAP, not JSON. The SDK sends `text/xml; charset=UTF-8`, the quoted
 `urn:schemas-sony-com:service:IRCC:1#X_SendIRCC` SOAPAction, and an XML-escaped
 IRCCCode. XML and empty successful responses are accepted without JSON parsing.
 HTTP failures, including SOAP faults delivered with HTTP 500, propagate.
 
-`IRCC_CODES` covers all plugin remote-key, volume-step, and power-off commands.
-Names follow the actual commands: the plugin's “previous track” code is
-`FlashMinus`; the actual previous-track code is `Prev`. The plugin's
-“play/pause” code is `Play`, not a guaranteed toggle. `PowerOff` is discrete
-off rather than a power toggle. `sendCode` also accepts device-specific codes.
+`IRCC_CODES` provides named remote-control codes, including navigation,
+playback, volume steps, and power-off. `Prev` is previous track; `FlashMinus` is
+a separate command. `Play` is not a guaranteed play/pause toggle, and
+`PowerOff` is discrete off rather than a power toggle. `sendCode` also accepts
+device-specific codes.
 
 ## Errors and caller responsibilities
 
-JSON API failures throw `BraviaError`. Its `id` is the **Sony error code**
-(retaining the SDK's existing error-property convention); `requestId` is the
-response's correlation ID. `errorMessage` contains the TV's diagnostic message.
+JSON API failures throw `BraviaError`. Its `id` is the **Sony error code**;
+`requestId` is the response's correlation ID. `errorMessage` contains the TV's
+diagnostic message.
 Do not branch on message text. A successful `result` takes precedence over an
 `error` member, as Sony specifies. HTTP, network, and JSON-parsing failures are
 not converted into synthetic power, volume, or mute values. Commands are not
 automatically retried, avoiding duplicated relative adjustments or key presses.
 
-The SDK deliberately does not copy the plugin's cached state, automatic power-on
-delays, polling timers, source filtering, HomeKit mapping, or compatibility-mode
-proxy destination. Wake-on-LAN uses UDP, not a TV HTTP endpoint, and belongs to
-the caller. A suspended TV may not expose its HTTP server at all. Availability
-of methods, authentication modes, and remote codes depends on model/firmware.
-
-## Integration sequences
-
-Use Node 24 and pnpm. From the repository root, run `pnpm build` first so
-workspace package exports exist, then `pnpm --filter @hyjk2000/bravia-sdk test`.
-Both packages have a `typecheck` script; root `pnpm typecheck` (or `pnpm check`)
-checks both with TypeScript's `noEmit`. Tests use Vitest's `expect` assertions.
-`tests/integration.test.ts` calls the real SDK against
-`tests/mock-tv.ts`, a stateful MSW API. Setters change the state observed by later
-reads. Tests use MSW 2's `msw/node` adapter and distinct TV origins to isolate
-MSW's cookie store.
-
-The explicit sequences mirror the reference plugin's code paths:
-
-- `start` / `checkRegistration` / `receiveNextSources`: public interface probe →
-  PIN challenge → incorrect PIN → correct PIN → private system metadata →
-  configured external-input and tuner sources → application discovery.
-- `setActiveIdentifier` / `pollPlayContent`: restore cookie → standby → explicit
-  power-on → HDMI selection/readback → app launch → AV-info error → tuner
-  selection/readback → power-off → standby and AV-info error.
-- `receiveSource`: explicitly fetch successive content pages and the empty end
-  page, rather than assuming the plugin's first-page scan is complete.
-- Speaker and remote callbacks: read both outputs → absolute speaker volume →
-  relative headphone adjustments → global mute/unmute → IRCC volume steps and
-  navigation → discrete IRCC power-off → standby readback.
-- Failure paths: API codes versus correlation IDs, invalid selection without
-  state mutation, forbidden access, non-retried HTTP failures, JSON PIN
-  challenges, and empty SOAP success responses.
-
-These are mock integrations, not proof of compatibility with a physical TV.
+The caller manages cached state, polling, source filtering, and wake readiness.
+Wake-on-LAN uses UDP, not a TV HTTP endpoint, and is not provided by the SDK.
+A suspended TV may not expose its HTTP server at all. Availability of methods,
+authentication modes, and remote codes depends on model and firmware.
 
 ## Contract sources and limits
 
-Prefer Sony's documentation over plugin implementation details:
+Sony's documentation describes the underlying protocols:
 
 - [Sony REST structure and specifications](https://pro-bravia.sony.net/remote-display-control/rest-api/structure/):
   service URLs, positive integer IDs, result/error arrays, and PSK authentication.
@@ -170,11 +138,12 @@ Prefer Sony's documentation over plugin implementation details:
   SOAP transport, authentication, remote codes, and suspend/Wake-on-LAN limits.
 
 Sony's current professional-display reference does not document `actRegister`
-and now shows `getContentList` v1.5, not the plugin's v1.0 schema. Those legacy
-contracts are corroborated, not established by that modern reference:
+and now shows `getContentList` v1.5 rather than the v1.0 schema used by the SDK.
+The following sources document these legacy consumer-TV contracts:
 
 - [Independent PIN registration implementation (pybravia)](https://github.com/Drafteed/pybravia/blob/master/pybravia/client.py)
   and [PIN challenge example](https://stackoverflow.com/questions/57745785/how-to-authenticate-with-sony-bravia-tv-ip-control-without-preshared-key).
-- [Historical consumer-TV v1.0 method/schema inventory](https://gist.github.com/kalleth/e10e8f3b8b7cb1bac21463b0073a65fb),
-  plus the reference plugin's actual calls. Optional tuner metadata is
-  source-dependent, not a universal professional-display guarantee.
+- [Historical consumer-TV v1.0 method/schema inventory](https://gist.github.com/kalleth/e10e8f3b8b7cb1bac21463b0073a65fb).
+
+Optional tuner metadata is source-dependent, not a universal
+professional-display guarantee.

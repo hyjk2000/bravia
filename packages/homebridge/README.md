@@ -1,34 +1,33 @@
 # Sony BRAVIA for Homebridge
 
-Expose Sony BRAVIA televisions in Apple Home through `@hyjk2000/homebridge-bravia`. Supports power, volume, mute, input selection, application launching, and remote-control keys through the TV's local Sony APIs.
+Control Sony BRAVIA TVs in Apple Home: power, volume, mute, inputs, apps, and remote keys.
 
 ## Requirements
 
-- Node.js 24 or later and Homebridge 1.8.0 or later, within the package's declared peer dependency range.
-- A Sony BRAVIA TV with Sony JSON-RPC and IRCC IP control support. Available inputs, applications, and commands depend on the model and firmware; not every BRAVIA model is supported.
-- LAN connectivity from Homebridge to the TV. Enable IP/remote control and network standby (sometimes called Remote Start) in the TV settings. A DHCP reservation is recommended.
+- Node.js 24+ and Homebridge 1.8.0+ within the declared peer dependency range.
+- A LAN-accessible BRAVIA TV with JSON-RPC and IRCC IP control enabled. Support varies by model and firmware.
+- Network standby/Remote Start enabled for wake support. A DHCP reservation is recommended.
 
 ## Installation and setup
 
-1. Search for `@hyjk2000/homebridge-bravia` in the Homebridge UI Plugins tab and install it. Alternatively, install it in your Homebridge environment with `npm install -g @hyjk2000/homebridge-bravia`.
-2. Open the plugin settings and add each TV with a unique name and its IP address or hostname. Enter only the address, not a URL or port; use the separate `port` setting if needed.
-3. Turn the TV on, save the settings, and restart Homebridge or the plugin's child bridge.
-4. Authenticate using one of the methods below.
-5. In Apple Home, choose **Add Accessory → More Options**, select each TV, and enter the pairing code for the Homebridge instance or child bridge running the plugin. TVs are published as separate external accessories by default; pairing Homebridge alone does not add them.
+1. Install `@hyjk2000/homebridge-bravia` from the Homebridge UI.
+2. Add each TV in the plugin settings with a unique name and IP address or hostname. Use `port` separately if needed.
+3. Turn the TV on, save, restart the bridge, and authenticate below.
+4. In Apple Home, choose **Add Accessory → More Options** and pair each TV using the bridge's pairing code. TVs are separate accessories by default.
 
 ### TV authentication
 
-**Pre-shared key:** Enable pre-shared-key authentication in the TV's IP control settings, choose a key, and enter the same value in the plugin's `psk` field.
+**Pre-shared key:** Set a key in the TV's IP control settings and enter it as `psk`.
 
-**PIN pairing:** Leave `psk` blank. After restarting, open the full local URL printed in the Homebridge logs and enter the PIN displayed on the TV into that page. No terminal input is required. Saved sessions and valid pre-shared keys skip this step.
+**PIN:** Leave `psk` blank. Open the full URL in the Homebridge logs and enter the PIN shown on the TV. Saved sessions skip pairing.
 
-The temporary PIN page listens on an automatically selected free port on the Homebridge host and closes after pairing. Your browser must be able to reach that host and port. If the logged hostname cannot be resolved, replace only the hostname with the Homebridge host's LAN IP, keeping the port and full path. In Docker, host networking lets the browser reach the dynamically allocated pairing port.
+The temporary pairing page uses a dynamic port on the Homebridge host. If needed, replace only the URL's hostname with the host's LAN IP; preserve the port and path. Docker host networking allows access to this port.
 
-Use PIN pairing only on a trusted LAN. Do not expose the PIN server to the internet or share its capability URL. TV control and the pairing page use local HTTP, not HTTPS.
+Pair only on a trusted LAN: TV control and PIN entry use HTTP. Never expose the pairing server publicly or share its URL.
 
 ## Configuration
 
-The Homebridge UI provides a settings form. For manual configuration, add this entry to the `platforms` array in Homebridge's `config.json`:
+Use the plugin settings, or add this to `platforms` in Homebridge's `config.json`:
 
 ```json
 {
@@ -43,7 +42,7 @@ The Homebridge UI provides a settings form. For manual configuration, add this e
 }
 ```
 
-Each `tvs` entry supports these options. All intervals and delays are in milliseconds.
+Options per TV; times are in milliseconds.
 
 | Option              | Default           | Description                                                                                                    |
 | ------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -63,33 +62,28 @@ Each `tvs` entry supports these options. All intervals and delays are in millise
 | `externalaccessory` | `true`            | Publish each TV separately. Set `false` to publish through the bridge instead.                                 |
 | `debug`             | `false`           | Log TV command and refresh errors at info level; otherwise these use Homebridge debug logging.                 |
 
-When `sources` is omitted, the plugin scans `extInput:hdmi`, `extInput:component`, `extInput:scart`, `extInput:cec`, and `extInput:widi`. Set `sources: []` to disable those categories. Set `applications: []` or omit it to expose no apps. At most 95 inputs and applications are exposed per TV.
+Default sources: `extInput:hdmi`, `extInput:component`, `extInput:scart`, `extInput:cec`, and `extInput:widi`. Use `sources: []` to disable them. Apps are opt-in. Each TV supports up to 95 inputs/apps combined.
 
-Input identifiers, HomeKit input names, and visibility are preserved across rescans. Accessory identity uses the configured MAC when present, otherwise the host address. Keep these identity fields stable; adding or changing a MAC, or changing the host without a configured MAC, changes accessory identity.
+Input IDs, names, and visibility survive rescans. Keep `mac` (or the host address when no MAC is set) stable to preserve accessory identity.
 
 ## Troubleshooting
 
-- **No PIN or pairing page:** Turn the TV on, check its IP control/authentication settings, and restart the plugin. Use the full URL from the latest logs; its path changes when the plugin restarts. Check firewall and container port access.
-- **TV will not wake:** Enable network standby/Remote Start. Configure `mac` for Wake-on-LAN and check that `woladdress` reaches the TV's network. Increase `starttimeout` if commands arrive before the TV is ready.
-- **TV missing from Apple Home:** Add each external TV separately using the Homebridge or child bridge pairing code. Check that mDNS discovery works between your Apple device and Homebridge.
-- **Missing inputs or apps:** Turn the TV on and check `sources`, `tvsource`, and application title filters. Unsupported Sony source categories are skipped. Discovery depends on the model and firmware.
-- **Connection failures:** Check the TV address, HTTP port, credentials, and LAN reachability. Cached services are restored when the TV is offline; initialization is retried while Homebridge is running.
+- **Pairing page unavailable:** Turn the TV on, check IP control settings, and use the latest log URL. Check firewall/container access.
+- **Will not wake:** Enable Remote Start, check `mac`/`woladdress`, and increase `starttimeout` if commands arrive too early.
+- **Missing TV:** Pair it separately and check mDNS connectivity.
+- **Missing inputs/apps:** Turn the TV on and check `sources`, `tvsource`, and case-sensitive app filters. Availability varies by firmware.
+- **Connection failures:** Check address, port, credentials, and LAN access. Offline TVs retain cached services; initialization retries automatically.
 
-When reporting an issue, include the plugin, Homebridge, and Node.js versions, TV model/firmware, sanitized configuration, and relevant logs. Remove pre-shared keys, cookies, PINs, and pairing URLs before sharing.
+Report issues with versions, TV model/firmware, sanitized config, and logs. Remove keys, cookies, PINs, and pairing URLs.
 
 ## Storage
 
-Sessions and external-accessory state are stored under `<Homebridge storage>/plugin-persist/hyjk2000-homebridge-bravia/<uuid>.json`, outside the plugin installation. Treat these files and Homebridge backups as credentials. Pre-shared keys remain in your Homebridge configuration.
+Sessions and accessory state live in `<Homebridge storage>/plugin-persist/hyjk2000-homebridge-bravia/<uuid>.json`. Protect these files and backups as credentials. Pre-shared keys remain in Homebridge's config.
 
-## Development and publishing
+## Development
 
-From the repository root, use Node.js 24 and the pinned pnpm version. Run `pnpm install`, then `pnpm build` before plugin tests. Use `pnpm --filter @hyjk2000/homebridge-bravia test` for plugin tests and `pnpm --filter @hyjk2000/homebridge-bravia dev` to watch and rebuild the plugin.
-
-For publishable changes, run `pnpm changeset` and commit the generated file. Push to `master`, then merge the **Version Packages** PR when ready to publish. Docs, tests, and tooling changes need no changeset. See the [official Changesets guide](https://changesets.dev/guide/automating).
-
-Setup: allow GitHub Actions to create pull requests and configure npm trusted publishers for both packages using `release.yml`. No npm token or Changesets bot is needed.
-
-Authoring references: [official plugin template](https://github.com/homebridge/homebridge-plugin-template) and [Homebridge verification requirements](https://github.com/homebridge/plugins/wiki/Verified-Plugins#current-requirements). This plugin is not claimed to be Homebridge Verified. Its Node.js 24 minimum excludes Node.js 22, which is currently required by the verification program.
+See the [monorepo README](../../README.md) for setup. Build before running
+`pnpm --filter @hyjk2000/homebridge-bravia test`; use `pnpm dev` to watch and rebuild.
 
 ## License
 
