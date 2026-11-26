@@ -1,6 +1,6 @@
 {
   "name": "@hyjk2000/bravia-sdk",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "TypeScript SDK for Sony BRAVIA JSON-RPC and IRCC APIs",
   "license": "MIT",
   "repository": {
