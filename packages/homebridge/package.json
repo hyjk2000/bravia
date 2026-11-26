@@ -1,7 +1,7 @@
 {
   "name": "@hyjk2000/homebridge-bravia",
   "displayName": "Sony BRAVIA",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Homebridge television platform for Sony BRAVIA TVs",
   "keywords": [
     "bravia",

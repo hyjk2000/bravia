@@ -1,5 +1,12 @@
 # @hyjk2000/homebridge-bravia
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [df11888]
+  - @hyjk2000/bravia-sdk@0.1.0
+
 ## 0.0.4
 
 ### Patch Changes
