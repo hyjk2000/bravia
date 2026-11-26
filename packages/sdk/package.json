@@ -32,8 +32,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "cookie": "^2.0.1",
-    "ky": "^2.1.0"
+    "cookie": "^2.0.1"
   },
   "devDependencies": {
     "msw": "^2"

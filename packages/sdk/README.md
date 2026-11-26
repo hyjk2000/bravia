@@ -21,6 +21,7 @@ import { Bravia } from "@hyjk2000/bravia-sdk";
 const tv = new Bravia({
   baseUrl: "http://192.168.1.50:80",
   psk: process.env.BRAVIA_PSK,
+  timeoutMs: 10_000, // Optional request deadline; defaults to 10 seconds.
 });
 
 const { result } = await tv.system.getPowerStatus();
@@ -47,6 +48,11 @@ remote-control codes. The caller manages polling, persistence, and wake readines
 
 `BraviaError.id` is the Sony error code; `requestId` is the request correlation
 ID. HTTP and network errors propagate separately.
+
+Requests use native `fetch` with a configurable `timeoutMs` deadline (10 seconds
+by default), including JSON response body reads, and no automatic retries.
+HTTP errors expose `response.status`; an aborted request may already have been
+executed by the TV.
 
 ## Development
 

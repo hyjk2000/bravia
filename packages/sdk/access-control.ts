@@ -1,5 +1,4 @@
-import { isHTTPError } from "ky";
-import { BraviaError, type BraviaTransport } from "./transport.ts";
+import { BraviaError, HttpError, type BraviaTransport } from "./transport.ts";
 
 export interface RegistrationOptions {
   /** Stable identity for this controller; reuse it when renewing registration. */
@@ -31,7 +30,7 @@ export class AccessControl {
       return this.transport.cookie ?? null;
     } catch (error) {
       if (
-        (isHTTPError(error) && error.response.status === 401) ||
+        (error instanceof HttpError && error.response.status === 401) ||
         (error instanceof BraviaError && error.id === 401)
       ) {
         return null;
